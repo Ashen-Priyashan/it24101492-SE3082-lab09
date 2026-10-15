@@ -1,0 +1,65 @@
+#include <cstdio>
+#include <cstdlib>
+
+#define N 512
+
+__global__ void addT(const int *a, const int *b, int *c)
+{
+    c[threadIdx.x] = a[threadIdx.x] + b[threadIdx.x];
+}
+
+static bool check_cuda(cudaError_t error, const char *operation)
+{
+    if (error == cudaSuccess)
+        return true;
+    std::fprintf(stderr, "%s failed: %s\n", operation, cudaGetErrorString(error));
+    return false;
+}
+
+static void random_ints(int *values, int count)
+{
+    for (int i = 0; i < count; ++i)
+        values[i] = std::rand() % 100;
+}
+
+int main()
+{
+    const size_t bytes = static_cast<size_t>(N) * sizeof(int);
+    int *a = static_cast<int *>(std::malloc(bytes));
+    int *b = static_cast<int *>(std::malloc(bytes));
+    int *c = static_cast<int *>(std::malloc(bytes));
+    int *d_a = nullptr, *d_b = nullptr, *d_c = nullptr;
+    if (!a || !b || !c) {
+        std::fprintf(stderr, "Could not allocate host arrays.\n");
+        std::free(a); std::free(b); std::free(c);
+        return 1;
+    }
+    random_ints(a, N);
+    random_ints(b, N);
+
+    if (!check_cuda(cudaMalloc(&d_a, bytes), "cudaMalloc(d_a)") ||
+        !check_cuda(cudaMalloc(&d_b, bytes), "cudaMalloc(d_b)") ||
+        !check_cuda(cudaMalloc(&d_c, bytes), "cudaMalloc(d_c)"))
+        return 1;
+    if (!check_cuda(cudaMemcpy(d_a, a, bytes, cudaMemcpyHostToDevice), "copy a to device") ||
+        !check_cuda(cudaMemcpy(d_b, b, bytes, cudaMemcpyHostToDevice), "copy b to device"))
+        return 1;
+
+    addT<<<1, N>>>(d_a, d_b, d_c);
+    if (!check_cuda(cudaGetLastError(), "addT kernel launch") ||
+        !check_cuda(cudaDeviceSynchronize(), "addT kernel execution") ||
+        !check_cuda(cudaMemcpy(c, d_c, bytes, cudaMemcpyDeviceToHost), "copy result to host"))
+        return 1;
+
+    int errors = 0;
+    for (int i = 0; i < N; ++i) {
+        std::printf("%d) %d + %d = %d\n", i, a[i], b[i], c[i]);
+        if (c[i] != a[i] + b[i])
+            ++errors;
+    }
+    std::printf("Verification: %d mismatches out of %d\n", errors, N);
+
+    std::free(a); std::free(b); std::free(c);
+    cudaFree(d_a); cudaFree(d_b); cudaFree(d_c);
+    return errors == 0 ? 0 : 1;
+}

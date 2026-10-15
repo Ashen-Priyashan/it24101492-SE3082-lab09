@@ -23,7 +23,7 @@ recreated from notebook cells whenever the runtime is restarted.
 | 1 | `hello.cu` | CUDA environment check and GPU thread output |
 | 2 | `ex2_add.cu` | One GPU thread adds two integers |
 | 3 | `ex3_blocks.cu` | 512 blocks, one thread per block |
-| 4 | `ex4_threads.cu` | One block, 512 threads; includes the 2048-thread limit experiment |
+| 4 | `ex4_threads.cu`, `ex4_limit.cu` | One block, 512 threads; a companion program probes the 2048-thread block limit |
 | 5 | `ex5_vecmul.cu` | Element-wise multiplication of 10,000,000 values |
 | 6 | `ex6_matrix.cu` | Element-wise multiplication of two 10,000 × 10,000 matrices |
 
